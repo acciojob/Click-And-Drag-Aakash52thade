@@ -1,56 +1,53 @@
-const container = document.querySelector(".items");
-const cubes = document.querySelectorAll(".item");
+document.addEventListener('DOMContentLoaded', () => {
+  const container = document.querySelector('.items');
+  if (!container) return;
 
-let activeCube = null;
-let offsetX = 0;
-let offsetY = 0;
+  let isDown = false;
+  let startX = 0;
+  let startScrollLeft = 0;
 
-// Enable dragging for each cube
-cubes.forEach(cube => {
-  cube.style.position = "absolute"; // allow free movement
-  cube.addEventListener("mousedown", (e) => {
-    activeCube = cube;
+  // Prevent native drag (images/text) interfering with our drag-to-scroll
+  container.addEventListener('dragstart', (e) => e.preventDefault());
 
-    // calculate offset so cube doesn't "jump" on click
-    const rect = cube.getBoundingClientRect();
-    offsetX = e.clientX - rect.left;
-    offsetY = e.clientY - rect.top;
+  container.addEventListener('mousedown', (e) => {
+    // Only respond to left button
+    if (e.button !== 0 && e.which !== 1) return;
 
-    cube.style.zIndex = 1000; // bring on top while dragging
-    document.addEventListener("mousemove", moveCube);
-    document.addEventListener("mouseup", dropCube);
+    isDown = true;
+    container.classList.add('active');
+
+    // Where inside the container did we press?
+    // Use pageX so Cypress { pageX: ... } works reliably
+    startX = e.pageX - container.getBoundingClientRect().left;
+
+    // Record current scroll position
+    startScrollLeft = container.scrollLeft;
+
+    // Avoid text selection while dragging
+    e.preventDefault();
+  });
+
+  const stopDragging = () => {
+    if (!isDown) return;
+    isDown = false;
+    container.classList.remove('active');
+  };
+
+  container.addEventListener('mouseleave', stopDragging);
+  container.addEventListener('mouseup', stopDragging);
+
+  container.addEventListener('mousemove', (e) => {
+    if (!isDown) return;
+
+    // Current mouse X relative to the container
+    const x = e.pageX - container.getBoundingClientRect().left;
+
+    // Movement delta; tweak multiplier for speed
+    const walk = (x - startX) * 2;
+
+    // Scroll opposite to mouse drag direction (feels natural)
+    container.scrollLeft = startScrollLeft - walk;
+
+    e.preventDefault();
   });
 });
-
-function moveCube(e) {
-  if (!activeCube) return;
-
-  const containerRect = container.getBoundingClientRect();
-  const cubeRect = activeCube.getBoundingClientRect();
-
-  // Calculate new positions
-  let newLeft = e.clientX - containerRect.left - offsetX;
-  let newTop = e.clientY - containerRect.top - offsetY;
-
-  // Boundary conditions
-  if (newLeft < 0) newLeft = 0;
-  if (newTop < 0) newTop = 0;
-  if (newLeft + cubeRect.width > containerRect.width) {
-    newLeft = containerRect.width - cubeRect.width;
-  }
-  if (newTop + cubeRect.height > containerRect.height) {
-    newTop = containerRect.height - cubeRect.height;
-  }
-
-  // Apply movement
-  activeCube.style.left = newLeft + "px";
-  activeCube.style.top = newTop + "px";
-}
-
-function dropCube() {
-  if (!activeCube) return;
-  activeCube.style.zIndex = 1;
-  document.removeEventListener("mousemove", moveCube);
-  document.removeEventListener("mouseup", dropCube);
-  activeCube = null;
-}
